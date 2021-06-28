@@ -1,0 +1,8 @@
+    - path: /etc/nomad.d/bootstrap.hcl
+      contents:
+        local: bootstrap.hcl
+      mode: 0600
+    - path: /etc/hostname
+      mode: 0644
+      contents:
+        inline: nomad-server-1

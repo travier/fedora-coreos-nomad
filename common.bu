@@ -1,0 +1,84 @@
+variant: fcos
+version: 1.3.0
+passwd:
+  users:
+    - name: core
+      ssh_authorized_keys:
+        - %%SSH_PUBKEY%%
+
+systemd:
+  units:
+    - name: docker.socket
+      enabled: false
+      mask: true
+
+    - name: podman.socket
+      enabled: true
+
+    - name: nomad-binaries.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Pull Nomad & podman driver binaries
+        After=network-online.target
+        Wants=network-online.target
+        ConditionPathExists=!/usr/local/bin/nomad
+        ConditionPathExists=!/usr/local/lib/nomad/plugins/nomad-driver-podman
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=podman create --name nomad-binaries quay.io/travier/nomad
+        ExecStart=podman cp nomad-binaries:/nomad /usr/local/bin/nomad
+        ExecStart=podman cp nomad-binaries:/nomad-driver-podman /usr/local/lib/nomad/plugins/nomad-driver-podman
+        ExecStart=podman rm -f nomad-binaries
+        ExecStart=podman rmi quay.io/travier/nomad
+        ExecStart=restorecon -RFv /usr/local/bin/nomad /usr/local/lib/nomad/plugins/nomad-driver-podman
+
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: nomad-agent.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Nomad
+        Documentation=https://www.nomadproject.io/docs/
+        After=network-online.target nomad-binaries.service
+        Wants=network-online.target
+        Requires=nomad-binaries.service
+
+        # When using Nomad with Consul it is not necessary to start Consul first. These
+        # lines start Consul before Nomad as an optimization to avoid Nomad logging
+        # that Consul is unavailable at startup.
+        #Wants=consul.service
+        #After=consul.service
+
+        [Service]
+        ExecReload=/bin/kill -HUP $MAINPID
+        ExecStart=/usr/local/bin/nomad agent -config /etc/nomad.d
+        KillMode=process
+        KillSignal=SIGINT
+        LimitNOFILE=65536
+        LimitNPROC=infinity
+        Restart=on-failure
+        RestartSec=2
+        TasksMax=infinity
+        OOMScoreAdjust=-1000
+
+        [Install]
+        WantedBy=multi-user.target
+
+storage:
+  directories:
+    - path: /etc/nomad.d
+      mode: 0700
+    - path: /var/lib/nomad
+      mode: 0711
+    - path: /usr/local/lib/nomad/plugins
+      mode: 0755
+  files:
+    - path: /etc/nomad.d/common.hcl
+      contents:
+        local: common.hcl
+      mode: 0600
