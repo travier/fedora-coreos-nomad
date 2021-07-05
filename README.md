@@ -5,7 +5,7 @@ the [Nomad Reference Architecture][nomad-ref-arch], using the [podman
 driver][podman-driver].
 
 This also includes support for the [Enable TLS Encryption for Nomad][nomad-tls]
-guide.
+guide to enable mutual TLS encryption and authentication.
 
 This will enable you to setup:
   * A Nomad bootstrap server,
@@ -13,12 +13,16 @@ This will enable you to setup:
     two followers,
   * Three clients (but you can spawn as many as you need for your workload).
 
-Note that this setup does not currently include Consul and Vault which are
-recommended in production setups.
+**Note that this setup does not currently include Consul and Vault support which
+are recommended in production setups.**
 
 ## How to use
 
-To generate the Ignition configs, you need `make` and [Butane][butane].
+To generate the private keys and certificates for mTLS, you need
+[`cfssl`][cfssl] and OpenSSL. To generate the Ignition configs, you need `make`
+and [Butane][butane].
+
+### Declaring deployment specific variables
 
 First, we have to specify a few values that are deployment specific and that
 will be included in configuration files. Use the example `secrets.example` file
@@ -33,6 +37,15 @@ datacenter (`DATACENTER`). You can ignore the remaining values for now:
 
 ```
 $ ${EDITOR} secrets
+```
+
+### Generating keys and certificates for mTLS
+
+You can generate keys and certificates for mTLS as detailled in the [Enable TLS
+Encryption for Nomad][nomad-tls] guide with the script:
+
+```
+$ ./generate_certs.sh
 ```
 
 ### Deploying the bootstrap server
@@ -76,7 +89,39 @@ $ make clients
 This will generate the `client-{1,2,3}` Ignition configs that you can use to
 deploy the three client instances.
 
-### Testing using a podman example job
+### Testing that the deployment succeeded
+
+Set the following environment variables to setup mTLS for the nomad CLI:
+
+```
+$ export NOMAD_ADDR=https://localhost:4646
+$ export NOMAD_CACERT=tls/nomad-ca.pem
+$ export NOMAD_CLIENT_CERT=tls/cli.pem
+$ export NOMAD_CLIENT_KEY=tls/cli-key.pem
+```
+
+Setup an SSH tunnel to a server node:
+
+```
+$ ssh core@SERVER_IP -L 4646:localhost:4646 -N
+```
+
+You can list the servers that are part of your cluster with:
+
+```
+$ nomad server members
+```
+
+And list the client nodes with:
+
+```
+$ nomad node status
+```
+
+You can also check out the web interface via your browser once you have
+imported the `tls/cli.p12` bundle into your browser certificate manager.
+
+### Testing the podman driver using a Redis example job
 
 You can test your Nomad deployment with the following Redis example job,
 adapted from the default example for podman. Note that container image names
@@ -113,6 +158,9 @@ job "example" {
     }
   }
 }
+
+$ nomad job run example.nomad
+...
 ```
 
 Note that Fedora CoreOS can only use one container runtime at a time thus you
@@ -154,5 +202,6 @@ This project should help you get started: <https://github.com/coreos/airlock>.
 [podman-driver]: https://github.com/hashicorp/nomad-driver-podman
 [nomad-tls]: https://learn.hashicorp.com/tutorials/nomad/security-enable-tls
 [butane]: https://coreos.github.io/butane/getting-started/#getting-butane
+[cfssl]: https://github.com/cloudflare/cfssl
 [deploy]: https://docs.fedoraproject.org/en-US/fedora-coreos/getting-started/
 [updates]: https://coreos.github.io/zincati/usage/updates-strategy/#periodic-strategy

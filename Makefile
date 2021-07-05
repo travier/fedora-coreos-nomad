@@ -5,6 +5,7 @@ include secrets
 common:
 	rm -rf ./config
 	cp -a template config
+	cp -a tls config/tls
 	find config/ -type f -print0 | xargs -0 sed -i 's/%%DATACENTER%%/${DATACENTER}/g'
 
 bootstrap: common

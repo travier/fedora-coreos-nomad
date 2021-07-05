@@ -1,8 +1,16 @@
-    - path: /etc/nomad.d/client.hcl
-      contents:
-        local: client.hcl
-      mode: 0600
     - path: /etc/hostname
       mode: 0644
       contents:
         inline: nomad-client-%%NUMBER%%
+    - path: /etc/nomad.d/client.hcl
+      contents:
+        local: client.hcl
+      mode: 0600
+    - path: /etc/nomad.certs/client.pem
+      contents:
+        local: tls/client.pem
+      mode: 0600
+    - path: /etc/nomad.certs/client-key.pem
+      contents:
+        local: tls/client-key.pem
+      mode: 0600

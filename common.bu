@@ -73,6 +73,8 @@ storage:
   directories:
     - path: /etc/nomad.d
       mode: 0700
+    - path: /etc/nomad.certs
+      mode: 0700
     - path: /var/lib/nomad
       mode: 0711
     - path: /usr/local/lib/nomad/plugins
@@ -81,4 +83,8 @@ storage:
     - path: /etc/nomad.d/common.hcl
       contents:
         local: common.hcl
+      mode: 0600
+    - path: /etc/nomad.certs/nomad-ca.pem
+      contents:
+        local: tls/nomad-ca.pem
       mode: 0600
