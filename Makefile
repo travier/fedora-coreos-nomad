@@ -1,6 +1,11 @@
-.PHONY: common bootstrap servers clients
+.PHONY: all common bootstrap servers clients
 
 include secrets
+
+all:
+	make bootstrap
+	make servers
+	make clients
 
 common:
 	rm -rf ./config
