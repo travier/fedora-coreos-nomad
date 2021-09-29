@@ -14,3 +14,11 @@ tls {
   verify_server_hostname = true
   verify_https_client    = true
 }
+
+consul {
+  address = "127.0.0.1:8501"
+  client_service_name = "nomad-server"
+  auto_advertise = true
+  server_auto_join = true
+  client_auto_join = true
+}

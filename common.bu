@@ -44,9 +44,9 @@ systemd:
         [Unit]
         Description=Nomad
         Documentation=https://www.nomadproject.io/docs/
-        After=network-online.target nomad-binaries.service
+        After=network-online.target nomad-binaries.service consul-agent.service
         Wants=network-online.target
-        Requires=nomad-binaries.service
+        Requires=nomad-binaries.service consul-agent.service
 
         # When using Nomad with Consul it is not necessary to start Consul first. These
         # lines start Consul before Nomad as an optimization to avoid Nomad logging
@@ -69,6 +69,58 @@ systemd:
         [Install]
         WantedBy=multi-user.target
 
+    - name: consul-binaries.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=Pull consul binaries
+        After=network-online.target
+        Wants=network-online.target
+        ConditionPathExists=!/usr/local/bin/consul
+        ConditionPathExists=!/usr/local/lib/consul/plugins/consul-driver-podman
+
+        [Service]
+        Type=oneshot
+        RemainAfterExit=yes
+        ExecStart=podman create --name consul-binaries quay.io/ramblurr/consul
+        ExecStart=podman cp consul-binaries:/consul /usr/local/bin/consul
+        ExecStart=podman rm -f consul-binaries
+        ExecStart=podman rmi quay.io/ramblurr/consul
+        ExecStart=restorecon -RFv /usr/local/bin/consul
+
+        [Install]
+        WantedBy=multi-user.target
+
+    - name: consul-agent.service
+      enabled: true
+      contents: |
+        [Unit]
+        Description=consul
+        Documentation=https://www.consulproject.io/docs/
+        After=network-online.target consul-binaries.service
+        Wants=network-online.target
+        Requires=consul-binaries.service
+
+        # When using consul with Consul it is not necessary to start Consul first. These
+        # lines start Consul before consul as an optimization to avoid consul logging
+        # that Consul is unavailable at startup.
+        #Wants=consul.service
+        #After=consul.service
+
+        [Service]
+        ExecReload=/bin/kill -HUP $MAINPID
+        ExecStart=/usr/local/bin/consul agent -config-dir /etc/consul.d
+        KillMode=process
+        KillSignal=SIGINT
+        LimitNOFILE=65536
+        LimitNPROC=infinity
+        Restart=on-failure
+        RestartSec=2
+        TasksMax=infinity
+        OOMScoreAdjust=-1000
+
+        [Install]
+        WantedBy=multi-user.target
 storage:
   directories:
     - path: /etc/nomad.d
@@ -79,6 +131,10 @@ storage:
       mode: 0711
     - path: /usr/local/lib/nomad/plugins
       mode: 0755
+    - path: /etc/consul.d
+      mode: 0700
+    - path: /var/lib/consul
+      mode: 0711
   files:
     - path: /etc/nomad.d/common.hcl
       contents:
@@ -88,3 +144,22 @@ storage:
       contents:
         local: tls/nomad-ca.pem
       mode: 0600
+    - path: /etc/consul.d/common.hcl
+      contents:
+        local: consul-common.hcl
+      mode: 0600
+    - path: /etc/NetworkManager/system-connections/ens18.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=ens18
+          type=ethernet
+          interface-name=ens18
+          [ipv4]
+          address1=%%NODE_IP_PREFIX%%%%NODE_IP_SUFFIX%%/22
+          gateway=%%NODE_GATEWAY%%
+          dns=%%NODE_DNS%%
+          dns-search=
+          may-fail=false
+          method=manual

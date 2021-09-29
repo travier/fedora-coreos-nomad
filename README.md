@@ -1,6 +1,6 @@
-# Butane configs to deploy Nomad on Fedora CoreOS
+# Butane configs to deploy Consul and Nomad on Fedora CoreOS
 
-The Butane configurations from this project will deploy Nomad as described in
+The Butane configurations from this project will deploy Consul and Nomad as described in
 the [Nomad Reference Architecture][nomad-ref-arch], using the [podman
 driver][podman-driver].
 
@@ -8,13 +8,13 @@ This also includes support for the [Enable TLS Encryption for Nomad][nomad-tls]
 guide to enable mutual TLS encryption and authentication.
 
 This will enable you to setup:
-  * A Nomad bootstrap server,
-  * Two other servers to enable the election to proceed and have a leader and
+  * A bootstrap server running Consul and Nomad
+  * Two other servers that run Consul and Nomad in server mode to enable the election to proceed and have a leader and
     two followers,
-  * Three clients (but you can spawn as many as you need for your workload).
+  * Three Nomad and Consul clients (but you can spawn as many as you need for your workload).
 
-**Note that this setup does not currently include Consul and Vault support which
-are recommended in production setups.**
+**Note that this setup does not currently include Vault support which
+is recommended in production setups.**
 
 ## How to use
 
@@ -58,7 +58,7 @@ clients:
 $ make bootstrap
 ```
 
-This will generate the `server-1.ign` Ignition config that you can use to
+This will generate the `ignition/server-0.ign` Ignition config that you can use to
 deploy your Fedora CoreOS Nomad bootstrap server. See the [Fedora CoreOS
 docs][deploy] for instructions on how to use this Ignition config to deploy a
 Fedora CoreOS instance on your prefered platform.
@@ -77,7 +77,7 @@ And then generate the configurations for the additionnal servers:
 $ make servers
 ```
 
-This will generate the `server-{2,3}` Ignition configs that you can use to
+This will generate the `ignition/server-{1,2}` Ignition configs that you can use to
 deploy the two additional server instances.
 
 Then do the same for the clients:
@@ -86,7 +86,7 @@ Then do the same for the clients:
 $ make clients
 ```
 
-This will generate the `client-{1,2,3}` Ignition configs that you can use to
+This will generate the `ignition/client-{0,1,2}` Ignition configs that you can use to
 deploy the three client instances.
 
 ### Testing that the deployment succeeded
@@ -98,21 +98,27 @@ $ export NOMAD_ADDR=https://localhost:4646
 $ export NOMAD_CACERT=tls/nomad-ca.pem
 $ export NOMAD_CLIENT_CERT=tls/cli.pem
 $ export NOMAD_CLIENT_KEY=tls/cli-key.pem
+$ export CONSUL_HTTP_ADDR=https://localhost:8501
+$ export CONSUL_CACERT=tls/nomad-ca.pem
+$ export CONSUL_CLIENT_CERT=tls/cli.pem
+$ export CONSUL_CLIENT_KEY=tls/cli-key.pem
+
 ```
 
 Setup an SSH tunnel to a server node:
 
 ```
-$ ssh core@SERVER_IP -L 4646:localhost:4646 -N
+$ ssh core@SERVER_IP -L 8501:localhost:8501  -L 4646:localhost:4646 -N
 ```
 
-You can list the servers that are part of your cluster with:
+You can list the nomad and consul servers and client that are part of your cluster with:
 
 ```
+$ consul members
 $ nomad server members
 ```
 
-And list the client nodes with:
+And list the nomad client nodes with:
 
 ```
 $ nomad node status

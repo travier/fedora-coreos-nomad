@@ -14,3 +14,7 @@
       contents:
         local: tls/client-key.pem
       mode: 0600
+    - path: /etc/consul.d/client.hcl
+      contents:
+        local: consul-client.hcl
+      mode: 0600
