@@ -1,3 +1,11 @@
+# Archived as Hashicorp projects are no longer open source
+
+See https://www.hashicorp.com/blog/hashicorp-adopts-business-source-license
+
+Original README below.
+
+---
+
 # Butane configs to deploy Nomad on Fedora CoreOS
 
 The Butane configurations from this project will deploy Nomad as described in
